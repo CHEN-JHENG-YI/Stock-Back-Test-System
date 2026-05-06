@@ -1,0 +1,68 @@
+name: Feature request
+description: Propose a new feature or a meaningful change to an existing one.
+title: "feat: <short title>"
+labels: ["feature", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For major design decisions (new dependency, public API change, plugin/Lua API change),
+        consider opening an ADR PR in `Docs/Decisions/` instead — it's a better home for
+        rationale and trade-offs.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user pain or missed opportunity does this address? Lead with the user, not the feature.
+      placeholder: "Today, users who want to backtest a basket of symbols have to ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: A short description. Keep it solution-shaped, but leave room for the implementer to push back.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any rejected approaches and why.
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (in / out)
+      description: Lists of what's in scope and out of scope, so reviewers can quickly agree on the surface area.
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success criteria
+      description: How do we know this is done? Tie to user-visible behavior or measurable metrics where possible.
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (your assessment)
+      options:
+        - nice-to-have
+        - useful
+        - important
+        - blocking
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Sanity checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: This isn't a question that's answered by `Docs/Specs/` or other `Docs/`.
+          required: true

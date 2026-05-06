@@ -1,0 +1,102 @@
+name: Bug report
+description: Something is wrong, broken, or behaves unexpectedly.
+title: "bug: <short title>"
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill in every section so we can reproduce.
+        Skipped sections will get sent back with a "please fill out the template" comment.
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From Help → About, or `git describe --tags --dirty` if running from source.
+      placeholder: e.g. 0.3.0 or 0.3.0-12-gabcdef-dirty
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS arm64 (12+)
+        - macOS x64 (12+)
+        - Linux (specify distro below)
+        - Other / multiple
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Linux distro / version (if applicable)
+      placeholder: e.g. Ubuntu 22.04, Fedora 40
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Clear, factual. No "it's broken" — describe the symptom.
+      placeholder: "When I run a backtest with X, the equity curve shows Y instead of Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: "I expected the equity curve to show ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, deterministic. If possible, include a strategy file and a date range.
+      placeholder: |
+        1. Open the app
+        2. Load strategy `sma-cross-aapl.rule.json`
+        3. Run backtest from 2020-01-01 to 2020-12-31 with default config
+        4. Observe equity panel
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots / repro data
+      description: |
+        Attach `<userData>/logs/stockBacktester.log` if relevant.
+        Trim to the relevant lines. Don't paste DB or strategy files containing secrets.
+      render: text
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (your assessment)
+      options:
+        - low (cosmetic, rare, has workaround)
+        - medium (affects normal use, has workaround)
+        - high (blocks normal use, no workaround)
+        - critical (data loss / crash on launch / security)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Sanity checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I'm running a supported OS version (per the table above).
+          required: true
+        - label: I am not pasting secrets, API keys, or private data.
+          required: true
