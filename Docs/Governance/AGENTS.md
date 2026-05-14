@@ -15,7 +15,7 @@ Whenever you start a task here, read these in order. Don't skip — every sectio
 1. **This file** (you're reading it).
 2. **[`README.md`](../../README.md)** — what the project is.
 3. **[`Docs/Specs/00_Overview.md`](../Specs/00_Overview.md)** — system architecture and end-to-end flow.
-4. **The relevant `Docs/Specs/0X_*.md`** for the module you're touching. The index is in [`Docs/Specs/README.md`](../Specs/README.md).
+4. **The relevant `Docs/Specs/0X_*.md`** (numbers `01`–`11`) for the module you're touching — use **`11_Stock_Screener_KLine_Product.md`** when changing replay, authoring surfaces, or screener scope. Full index in [`Docs/Specs/README.md`](../Specs/README.md).
 5. **[`.cursor/skills/`](../../.cursor/skills/)** — five always-on coding rules (modern C++, thread safety, performance, OOP/design, static analysis). These auto-trigger from the agent host but you should know they exist so you can name them when needed.
 6. **[`Docs/DEFINITION_OF_DONE.md`](../DEFINITION_OF_DONE.md)** — what "done" means in this repo. **You do not declare a task done until every box on this checklist is true.**
 7. **[`Docs/Decisions/`](../Decisions/)** — Architecture Decision Records. Read the ADRs that touch your area before making design choices.

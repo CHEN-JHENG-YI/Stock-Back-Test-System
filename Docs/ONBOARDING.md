@@ -14,7 +14,8 @@ In this order:
 2. [`Governance/AGENTS.md`](Governance/AGENTS.md) — how to behave (applies to humans too).
 3. [`Governance/CONTRIBUTING.md`](Governance/CONTRIBUTING.md) — process.
 4. [`Specs/00_Overview.md`](Specs/00_Overview.md) and [`Specs/README.md`](Specs/README.md) — system design.
-5. `Docs/DEFINITION_OF_DONE.md` — what "done" means.
+5. [`Ops/Team_Ownership_And_Product_Pillars.md`](Ops/Team_Ownership_And_Product_Pillars.md) — seven topic owners and the three product pillars (organizational; optional on day one).
+6. `Docs/DEFINITION_OF_DONE.md` — what "done" means.
 
 If you only have time to read three, read [`Governance/AGENTS.md`](Governance/AGENTS.md), [`Specs/00_Overview.md`](Specs/00_Overview.md), and [`DEFINITION_OF_DONE.md`](DEFINITION_OF_DONE.md).
 

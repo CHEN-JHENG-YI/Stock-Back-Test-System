@@ -78,7 +78,7 @@ public:
 | `momentum` | `period=10` | scalar | Close - close[period]. |
 | `tr` | — | scalar | True range (input to ATR). |
 | `crossover` | `a, b: indicator` | bool/scalar | +1 / -1 / 0 cross signal — see §5. |
-| `passthrough` | `field: open|high|low|close|volume` | scalar | Wraps a bar field as an indicator (so rule mode can compose). |
+| `passthrough` | `field: open|high|low|close|volume` | scalar | Wraps a bar field as an indicator (so rule / script modes can compose). |
 
 **Phase 2 (room reserved, not implemented day 1):** `keltner`, `cci`, `mfi`, `parabolicSar`, `ichimoku`, custom user indicators via plugins (see `08`).
 
@@ -92,7 +92,7 @@ Two ways:
 // 1. Direct C++ usage (engine internals)
 auto rsi = std::make_unique<RsiIndicator>(/*period*/14);
 
-// 2. By name + JSON args (used by rule + Lua + plugins)
+// 2. By name + JSON args (used by rule/compiler, Lua, Python host, plugins)
 auto handle = registry.create("rsi", { {"period", 14} });
 ```
 
@@ -132,7 +132,7 @@ struct CrossDetector {
 };
 ```
 
-Both rule mode (`crosses.above`) and Lua mode (`bte.crossesAbove`) compile down to one of these per pair.
+Rule mode (`crosses.above`), Lua (`bte.crossesAbove`), and Python strategies (same detector exposed through the strategy binding layer per **`05`**) all share this implementation per monitored pair.
 
 ---
 

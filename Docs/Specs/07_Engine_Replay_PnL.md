@@ -2,10 +2,12 @@
 
 The engine is the heart of the backend. It pulls bars, runs the strategy, simulates fills, updates the portfolio, computes metrics, and feeds the UI.
 
-It runs in **two modes** with the **same code path**:
+It runs in **two execution modes** (distinct from strategy *authoring* modes in `05`/`11`) with the **same code path**:
 
 - **Backtest** — drains a `BarStream` as fast as possible.
-- **Replay** — paces with a `ReplayClock` so the UI can animate.
+- **Replay** — **K-line replay**: paces the identical pipeline with a `ReplayClock` so the UI animates candles, volume, and trade markers (`02` §2.3, `11` §1).
+
+**Session inputs.** Each replay attaches to **`BarStream`** configuration `(symbol, schema/timeframe, date range[, initialCapital from EngineConfig])`. Missing history or mismatched schemas surface as structured `Result` errors in the bindings layer (`04`).
 
 ---
 
@@ -313,7 +315,7 @@ In Phase 1 the UI exposes only single-symbol replay; the engine API is already b
 
 For any combination of:
 - same `BarStream` data
-- same strategy file (rule JSON or Lua)
+- same strategy file (rule JSON, Lua, or Python once enabled)
 - same `EngineConfig`
 - same engine version
 

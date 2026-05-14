@@ -54,7 +54,7 @@ Rules:
 | `bteCore` | static lib | Core types. Header-mostly, small `.cpp`. |
 | `bteData` | static lib | DuckDB adapter; depends on `duckdb` (vendored). |
 | `bteIndicators` | static lib | Pure functions on streams. |
-| `bteStrategy` | static lib | Rule engine + Lua bridge (links `lua` or `sol2`). |
+| `bteStrategy` | static lib | Rule engine + Lua bridge (links `lua`/`sol2`); **Python host** added per ADR when shipped (`05`, `11`). |
 | `bteEngine` | static lib | Backtest + replay loops, broker sim. |
 | `bteMetrics` | static lib | PnL, Sharpe, etc. |
 | `bteBindings` | static lib | Qt-aware adapters (`Q_OBJECT`). Links Qt::Core. |
@@ -77,7 +77,7 @@ Three logical threads:
 Cross-thread rules:
 - **No shared mutable state.** `Bar`, `Order`, `Trade` are value types. `Portfolio` is owned by the engine, only **snapshots** (immutable copies) are shipped to the UI.
 - All UI updates from worker threads go through `emit signal(...)` with `Qt::QueuedConnection`. Never call widget methods from a worker.
-- **Cancellation** is a `std::stop_token` plumbed into `Engine::run` and into Lua via a debug hook that fires every N instructions.
+- **Cancellation** is a `std::stop_token` plumbed into `Engine::run` and into embedded script runners (Lua: instruction-count debug hook today; Python: analogous interrupt when host ships — **`05`**).
 
 ---
 
@@ -106,7 +106,7 @@ struct Error {
 };
 ```
 
-- **Lua errors** are converted to `Error` at the Lua/C++ boundary by `bteStrategy`.
+- **Lua / Python strategy errors** are converted to `Error` at the script/C++ boundary by `bteStrategy` (same codes as **`05`**).
 - **DuckDB errors** wrap the DuckDB exception's `what()`.
 - **UI** displays `error.message` directly; logs include the chain + file:line.
 - Internal helpers may throw; **public APIs never do**.
@@ -127,8 +127,9 @@ Subfolders the app expects to create:
 ```
 <userData>/
 ├── config/        # settings.json, theme.qss override
-├── strategies/    # *.lua, *.rule.json
-├── plugins/       # user-dropped *.so / *.dll / *.dylib
+├── strategies/    # *.rule.json, *.lua, *.py (+ optional *.meta.json)
+├── screeners/     # saved screener presets (`02`, `11`)
+├── plugins/       # user-dropped *.so / *.dll / *.dylib (native ABI only — not user `.py`)
 ├── sessions/      # saved replay sessions
 ├── logs/          # rotating spdlog files
 └── cache/         # query result cache, indicator cache
@@ -175,5 +176,5 @@ See `09` for the full packaging story.
 ## 8. Stability & compatibility
 
 - **Backend public headers** follow semver. Plugin ABI breaks only on a major bump (see `08`).
-- **Lua API** versioned via `bte.apiVersion` global. Plugins read it at load and refuse to run on mismatched majors.
+- **Lua API** versioned via `bte.apiVersion` global. Plugins read it at load and refuse to run on mismatched majors. **Python** strategies carry `pythonApiVersion` once published (`05` §7 persistence).
 - **DuckDB schema** is the Python pipeline's responsibility (`hourlyBars` table). The C++ data layer probes columns at startup and warns on shape changes — see `04`.

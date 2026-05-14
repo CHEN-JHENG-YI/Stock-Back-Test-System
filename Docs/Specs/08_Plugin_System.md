@@ -1,11 +1,13 @@
 # 08 — Plugin System
 
-How third parties (or the same user, later) extend the app without recompiling it. Two extension surfaces:
+How third parties extend the **native** surface without recompiling the main application.
 
-1. **Lua scripts** — drop in a `.lua` strategy file (covered by `05`). Trivial install, no native code.
-2. **Native C++ plugins** — shared libraries (`.so` / `.dylib` / `.dll`) that register strategies, indicators, or fill models.
+**Important:** End-user strategies written in **Lua** or **Python** (`05`, **`11`**) live as files under `<userData>/strategies/` and load through **`bteStrategy`** — they are **not** the DLL plugin ABI in this doc. Same for **natural language → accepted scripts** (`05` §6).
 
-This doc covers (2) and the runtime that loads both.
+**This document** covers:
+
+1. **Native C++ plugins** — shared libraries (`.so` / `.dylib` / `.dll`) that register strategies, indicators, or fill models.
+2. **Runtime wiring** — how native plugins coexist with scripted strategies already described in **`05`**.
 
 ---
 
@@ -209,27 +211,28 @@ UI signals:
 
 This is the same model as VSCode / Sublime extensions. We're explicit so users don't get surprised.
 
-For Lua strategies: full sandbox (see `05`), no prompt needed.
+**Script strategies** (Lua today; Python per **`05`**/**`11`** when shipped) use **`bteStrategy`'s sandbox** instead — **no trust hash dialog** (`05`). **Natural language** drafts still require explicit user acceptance before they become executable artifacts (`05` §6).
 
 ---
 
 ## 7. Hot reload
 
-- **Lua**: re-saving a `.lua` file in `<userData>/strategies/` triggers `QFileSystemWatcher` and a recompile. Editor shows "reloaded" or compile error.
+- **Lua / Python** (tracked extensions): re-saving `.lua` or `.py` under `<userData>/strategies/` triggers `QFileSystemWatcher` and a recompile. Editor shows **reloaded** or compile error (`02`, `05`).
 - **Native plugins**: hot reload is **not supported** in Phase 1. The user must restart the app. Reason: reliable unload of a `dlopen`'d C++ shared library requires meticulous management of static destructors and Qt meta-objects; not worth the surface area now.
 
 ---
 
 ## 8. Versioning the host's API
 
-Both Lua and native plugins read `bte::apiVersion`:
+Lua and native plugins consume version stamps from **`bte::apiVersion`**; embedded **Python** strategies use **`pythonApiVersion`** once the host ships (`05`).
 
 | Surface | Where it appears | Example |
 |---|---|---|
 | Lua | `bte.apiVersion` global | `"1"` |
+| Python | module / metadata field `pythonApiVersion` | `"1"` |
 | Native | `BTE_PLUGIN_ABI_MAJOR` macro | `1` |
 
-The app stamps this in the **Help → About** dialog and on the Plugins tab so users know what their plugins must target.
+The app publishes these in **Help → About** and on the Plugins tab alongside the app semver (`09` §6).
 
 ---
 

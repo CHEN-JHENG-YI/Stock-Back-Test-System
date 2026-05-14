@@ -46,7 +46,7 @@ We layer simple visual polish on top:
 │ File   Strategy   Data   View   Help                                  │
 ├───────────────────────────────────────────────────────────────────────┤
 │ ┌─ Tabs ──────────────────────────────────────────────────────────┐   │
-│ │ [Strategies] [Backtest] [Replay] [Plugins] [Logs]               │   │
+│ │ [Strategies] [Backtest] [Replay] [Screener] [Plugins] [Logs]    │   │
 │ ├─────────────────────────────────────────────────────────────────┤   │
 │ │                                                                 │   │
 │ │                  (active tab content)                           │   │
@@ -62,9 +62,12 @@ A two-pane view:
 - **Left** — list of saved strategies (from `<userData>/strategies/`).
 - **Right** — editor for the selected strategy.
 
-Editor has two modes:
-- **Rule mode** (default) — form-driven. Conditions, indicators, parameters, position sizing. See `05`.
-- **Lua mode** — `QPlainTextEdit` with syntax highlighting (custom `QSyntaxHighlighter`) and a "Validate" button that calls `bteStrategy::compile()`.
+Editor has **four visible modes** (three concrete artifact types):
+
+1. **Built-in components (rule)** (default) — form-driven rows (indicator, filter, portfolio gate…) with **`ALL conditions` / `ANY condition`** logic matching `conditionLogic` in `05` §3. Generates `*.rule.json`.
+2. **Python** — code editor with highlighting, diagnostics debounce (`05` §5), **Validate** invoking `compilePython()`.
+3. **Natural language (AI)** — prompt + chat transcript panes; generated text **must not** auto-run. **Accept** copies into Python or rule mode for compilation (`05` §6, `11` §3).
+4. **Lua** (optional / advanced) — retained for compatibility and reference strategies until Python reaches parity — same patterns as today (`05` §4).
 
 Bottom of the editor has **Run Backtest** and **Open in Replay** buttons.
 
@@ -77,9 +80,13 @@ Bottom of the editor has **Run Backtest** and **Open in Replay** buttons.
 | Right side panel | Summary metrics: total return, CAGR, Sharpe, max drawdown, win rate, # trades, exposure. |
 | Bottom | Sortable trade log table (`QTableView` + `QSortFilterProxyModel`). |
 
-### 2.3 Replay tab
+**Cross-link.** A dedicated CTA (toolbar or footer button) SHOULD deep-link results into Replay so users can reconcile fills on the candlestick chart (`11` §1).
 
-The headline feature. Layout:
+### 2.3 Replay tab — K-line setup
+
+Treat **Replay** as the **K-line (candlestick) playback surface** keyed by **`(symbol, timeframe/schema, inclusive date range, initial capital)`**, matching `11` §1 inputs. Playback chrome (speed presets, scrub, portfolio strip, trade markers) inherits `ReplaySessionVm`.
+
+The headline UX. Layout:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -108,8 +115,19 @@ Interactions:
 - **Scrub bar** — drag to a moment in time; engine rebuilds portfolio state by replaying from start (we keep checkpoints every 1000 bars to make this fast — see `07`).
 - **Trade markers** — green up-triangle for buys, red down-triangle for sells, click to see fill details.
 - **Cursor inspector** — hover any candle to see OHLCV + active indicators in a side popup.
+- **Volume pane** — histogram under the candles, sharing the categorical axis window (`11` §1).
 
-### 2.4 Plugins tab
+Universe picker + predicate builder mirrors the strategy editor modalities (`11` §2):
+
+| Region | Content |
+| --- | --- |
+| Top | Tabs: **Technical / Fundamental (when data exists) / Preset / Custom (Python) / AI (NL)** — exact availability depends on data pipeline staging. |
+| Builder | Reuses the same row model as rule mode for built-ins; separate Python editor for scripted scans; NL assistant identical to strategy flow. |
+| Logic | **Match ALL** vs **Match ANY** selector for built-in rows (maps to screener `conditionLogic`). |
+| Actions | **Run Screener**, export (CSV/clipboard). |
+| Results | `QTableView` with rank, symbol, company, price, change %, market cap, sector — plus optional performance/sector summary views in later milestones. |
+
+### 2.5 Plugins tab
 
 Read `<userData>/plugins/`, list each `.so` / `.dll` / `.dylib` with:
 - Plugin name, version, author (from `bteGetPluginManifest`)
@@ -117,7 +135,7 @@ Read `<userData>/plugins/`, list each `.so` / `.dll` / `.dylib` with:
 - Enable/disable toggle
 - "Open folder" button
 
-### 2.5 Logs tab
+### 2.6 Logs tab
 
 Tails `<userData>/logs/stockBacktester.log` via `QFileSystemWatcher` + ring buffer in memory, color-coded by level.
 
@@ -196,7 +214,8 @@ Concrete impl: `QtChartsCandlestickView : QWidget, IChartView`. Swapping to QCus
 
 | What | Where | Format |
 |---|---|---|
-| Strategies | `<userData>/strategies/<name>.{rule.json,lua}` | JSON (rule mode) or plain Lua |
+| Strategies | `<userData>/strategies/<name>.{rule.json,lua,py}` | JSON (rule mode) or scripts + optional `.meta.json` |
+| Screener presets | `<userData>/screeners/<name>.json` | Stores universe, `conditionLogic`, rows, optional Python path |
 | Saved replay sessions | `<userData>/sessions/<timestamp>.json` | JSON: symbol, range, strategy ref, last-bar position |
 | Settings | `<userData>/config/settings.json` | JSON: theme, db path, default schema, commission defaults |
 | Last layout | `<userData>/config/window.bin` | `QByteArray` from `saveState()` |
@@ -232,5 +251,5 @@ Wrap all user-visible strings in `tr(...)`. Keep a `Resources/i18n/stockBacktest
 - `Tests/Frontend/` uses Qt Test:
   - Smoke test: open each tab, ensure no crashes.
   - Replay state machine: simulate signals, assert UI labels update.
-  - Strategy editor: invalid Lua → red underline + error message.
+  - Strategy editor: invalid Lua or Python stub → underline + compile error surfaced in the diagnostics strip. **NL** smoke: **Run Backtest** stays disabled until the user **Accept**s generated text into an editor **and** `compile*` succeeds (`05` §6).
 - Visual regression on charts is **out of scope** for now; we eyeball it.

@@ -1,13 +1,16 @@
-# 05 — Strategy Authoring (Rules + Lua)
+# 05 — Strategy Authoring (Rules + Scripts + NL)
 
 How users describe a trading strategy and how the backend turns that description into **buy / sell / hold** actions per bar.
 
-We support **two authoring surfaces**:
+We support **three product-facing authoring surfaces** (see also `11_Stock_Screener_KLine_Product.md` §3):
 
-1. **Rule mode** — a JSON-backed declarative language editable from the Qt form. Covers ~80% of common strategies (crossovers, threshold, breakouts, % stops).
-2. **Lua mode** — a sandboxed Lua 5.4 script for everything else. Same `Context` API as rules, plus arbitrary control flow.
+1. **Built-in (rule) mode** — a JSON-backed declarative language editable from the Qt form. Covers ~80% of common strategies (crossovers, thresholds, breakouts, % stops). Multiple condition rows compose with **AND** or **OR** at the outermost level (`conditionLogic`: `all` | `any`; nested groups remain future work and are specified in `11` §2.2).
+2. **Python script mode** — sandboxed Python implementing the same logical hook points as Lua (`§5`). This is the **primary code-first authoring path** described to end users (`00`, `02`, `11`).
+3. **Natural language mode** — an AI-assisted flow that emits **candidate** Python or rule JSON which the user must **explicitly accept** before compile/run (`§6`).
 
-Both compile down to the same `IStrategy` C++ interface that the engine consumes (`07`).
+**Lua mode** (`§4`) remains the reference **embedded interpreter** documented today; migrating or duplicating semantics for Python stays an implementation detail governed by ADRs until the Python host ships.
+
+Rules, Lua, and Python targets all compile down to the same `IStrategy` C++ interface that the engine consumes (`07`).
 
 ---
 
@@ -99,6 +102,7 @@ The engine collects builds and produces `core::Order` instances with `createdAt 
   "id": "sma-cross-aapl",
   "name": "SMA 20/50 cross",
   "version": "1.0.0",
+  "conditionLogic": "all",
   "universe": { "symbols": ["AAPL"], "schemaName": "ohlcv-1h" },
   "params": {
     "fast": 20,
@@ -142,6 +146,17 @@ The engine collects builds and produces `core::Order` instances with `createdAt 
   ]
 }
 ```
+
+#### Boolean composition (`conditionLogic`)
+
+The top-level **`conditionLogic`** field controls how predicates inside each rule’s **`when`** array combine:
+
+| `conditionLogic` | Meaning inside each `"when"` array |
+| --- | --- |
+| `"all"` (default when omitted) | **AND** — every predicate must be true for the rule’s `when` to pass. |
+| `"any"` | **OR** — at least one predicate must be true. |
+
+Complex nesting such as `(A AND B) OR (C AND D)` is **not** part of Phase-1 schema; duplicate rules or move logic into script modes until grouping lands (`11` §2.2). The **stock screener’s** flat AND/OR selector maps to this same discriminator for its predicate list.
 
 ### 3.2 Operators
 
@@ -262,45 +277,115 @@ Errors during `lua_load` → `ErrorCode::strategyCompileFailed` with the Lua lin
 
 ---
 
-## 5. Strategy persistence & versioning
+## 5. Python script mode (product requirement)
+
+### 5.1 Role
+
+Python is the **user-facing** code authoring language for strategies and for **custom screeners** (`11`). Compiled strategies still appear to the engine as `IStrategy`; how Python attaches (embedded interpreter, subprocess with IPC, or verified translator into Lua/IR) **must be decided in an ADR** before merging runtime code — this spec captures **behavioral expectations**.
+
+### 5.2 API parity
+
+Python strategies SHOULD expose lifecycle hooks analogous to Lua:
+
+| Hook | Responsibility |
+|---|---|
+| `on_init(ctx)` | warm parameters, declare/prebind indicators (`InitContext`). |
+| `on_bar(ctx)` | read portfolio + indicators, submit orders via `OrderBuilder` peer. |
+| `on_fill(fill, ctx)` | optional journaling or state updates. |
+
+The concrete module layout (`bte` package vs `globals`) mirrors whatever binding layer is chosen; **semantic parity with `§4.3`** is the contract.
+
+### 5.3 Sandboxing & safety
+
+Python must **not** gain ambient authority:
+
+- deny or stub `open`, sockets, subprocess, `ctypes` to arbitrary native code, and import of non-allowlisted stdlib modules as determined by the ADR;
+- honor `std::stop_token` cancellation for long-running user code;
+- record `pythonApiVersion` alongside `bteApiVersion` in metadata once published.
+
+### 5.4 Packaging on disk
+
+| Artifact | Path |
+|---|---|
+| Source | `<userData>/strategies/<id>.py` |
+| Metadata | `<userData>/strategies/<id>.meta.json` (NL prompt hash, accepted model id, etc.) |
+
+### 5.5 Compilation entry point (name TBD)
+
+```cpp
+core::Result<std::unique_ptr<IStrategy>> compilePython(std::string_view source,
+                                                       StrategyConfig defaults);
+```
+
+Errors map to the same `ErrorCode` family as Lua (`strategyCompileFailed`, `strategyRuntimeError`).
+
+---
+
+## 6. Natural language (AI-assisted) authoring
+
+### 6.1 Flow
+
+1. User enters a **natural language** description of entries, exits, sizing, or filters.
+2. An **agent** (local model, cloud API, or hybrid — out of scope here) returns **structured output**: either candidate **Python** source or **rule JSON**, never silent execution.
+3. UI shows a **diff/preview**; user clicks **Accept** to copy the artifact into the Python or rule editor, then runs the normal `compile*` path.
+4. Persist `nlPrompt.txt` (or embedded field inside `.meta.json`) + `acceptedSourceSha256` for audit.
+
+### 6.2 Guardrails
+
+- No auto-run of AI output without explicit user confirmation **and** successful compile (`11` §3.2).
+- Treat model output as **untrusted code** until validated by the sandbox + compiler.
+- Determinism: LLM sampling must be pinned or temperature=0 when generating executable strategy text used for regression fixtures.
+
+---
+
+## 7. Strategy persistence & versioning
 
 | Field | Where stored | Notes |
 |---|---|---|
 | `id` | inside file | unique within `<userData>/strategies/` |
 | `version` | inside file | semver; bumped manually by user |
 | `bteApiVersion` | inside file | the `bte.apiVersion` it targets; rejected if app's major != file's major |
+| `pythonApiVersion` | inside `.meta.json` or PEP 723 header (TBD) | present for **`*.py`** once Python host ships; analogous rules to Lua major mismatch |
 | `createdAt`, `updatedAt` | file mtime | also stored inside for portability |
-| Source format | `*.rule.json` or `*.lua` + sibling `*.meta.json` | the `.meta.json` carries non-source fields for `.lua` scripts |
+| Source format | `*.rule.json`, `*.lua`, or `*.py` + sibling `*.meta.json` | the `.meta.json` carries non-source fields for scripted strategies + NL traces |
 
 The Strategies tab UI lists all files, filterable by tag.
 
 ---
 
-## 6. Live validation in the editor
+## 8. Live validation in the editor
 
 While the user types:
 - **Rule mode**: each form change re-renders JSON, calls `compileRule`, displays errors inline (`QLineEdit::setStyleSheet("background: #fee")`).
 - **Lua mode**: 500 ms debounce → `compileLua` (only `lua_load`, doesn't run). Errors highlight the offending line via the syntax highlighter.
+- **Python mode**: same debounce pattern → `compilePython` parse/static checks; optional `ruff`/`basedpyright` hooks when available.
+- **NL mode**: validate only **after** user accepts generated text into one of the concrete editors.
 
-Both modes show **indicator preview**: pick a symbol, press "Preview", and a thumbnail chart shows the indicator overlaid on recent bars without running a full backtest. Implemented by feeding 500 historical bars through `Indicators` only.
+All concrete code modes show **indicator preview**: pick a symbol, press "Preview", and a thumbnail chart shows the indicator overlaid on recent bars without running a full backtest. Implemented by feeding 500 historical bars through `Indicators` only.
 
 ---
 
-## 7. Determinism
+## 9. Determinism
 
-Every strategy run with the same `(strategy file, data range, params, engine config)` must produce **byte-identical** trades. Lua randomness (`math.random`) is seeded from the strategy id by default; users can override:
+Every strategy run with the same `(strategy file, data range, params, engine config)` must produce **byte-identical** trades. Script randomness is seeded deterministically (`math.random` in Lua today; Python’s `random` module must expose the same guarantee once enabled). Users may override deliberately:
 
 ```lua
-math.randomseed(123)   -- once in onInit
+math.randomseed(123)   -- once in onInit (Lua)
+```
+
+```python
+random.seed(123)       # once in on_init (Python; illustrative)
 ```
 
 The engine's broker simulator is deterministic by construction (`07`).
 
 ---
 
-## 8. Tests
+## 10. Tests
 
 - Rule compiler: every operator round-trips JSON → AST → JSON.
 - Lua sandbox escape attempts (load `os`, write a file): all fail.
 - A reference strategy (`sma-cross-aapl`) implemented in **both** rule and Lua produces identical trade lists on a fixed dataset — locks in semantic equivalence.
+- **Python (when shipped)**: the same fixture must match rule/Lua trades or document intentional deltas with regression tests proving equivalence.
+- **NL harness (offline)**: golden-file tests proving accepted artifacts compile; no network in CI unless using recorded fixtures.
 - Cancellation: an infinite-loop Lua script terminates within 50 ms of `stopSource_.request_stop()`.

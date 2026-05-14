@@ -309,10 +309,11 @@ Resumable downloads via HTTP `Range`; partial files in `tempDir` are reused on r
 
 - **Backtester app**: semver. Major break means strategies / plugins built before may not work without a port.
 - **Plugin ABI**: independent integer. Major bump only on layout/signature change. Multiple app majors can share one plugin major.
-- **Lua API**: independent integer.
+- **Lua API** (`bte.apiVersion`): independent integer (`08` §8).
+- **Python strategy API** (`pythonApiVersion`): independent integer once the Python host ships (`05`, `08` §8).
 - **Data schema**: owned by the Python pipeline; the C++ side reports what it expects and warns on drift (`04`).
 
-These three independent versions are surfaced in **Help → About** so users always know what they're targeting.
+These **independent version tracks** are surfaced in **Help → About** (and the Plugins tab) so users know what script and native extensions must target.
 
 ---
 
@@ -353,6 +354,6 @@ A single `Cmake/Versioning.cmake` generates `version.h` from `git describe --tag
 ## 10. Tests / CI gates
 
 - Build matrix green is a hard gate for merging to main.
-- Smoke test per OS: launch app, open each tab, close cleanly. Performed by Qt Test in headless mode (`QT_QPA_PLATFORM=offscreen` on Linux, `-platform offscreen` everywhere).
+- Smoke test per OS: launch app, open each tab (**Strategies, Backtest, Replay, Screener, Plugins, Logs** per `02`), close cleanly. Performed by Qt Test in headless mode (`QT_QPA_PLATFORM=offscreen` on Linux, `-platform offscreen` everywhere).
 - Launcher integration test (Linux only — sufficient): with a fake GitHub server, install two versions, set active, launch each, remove one. Asserts `active.json` correctness.
 - Reproducibility: backtest a fixture run on each OS; compare `metrics.json` byte-for-byte (we already promised determinism in `07`). Drift across OS = release blocker.
