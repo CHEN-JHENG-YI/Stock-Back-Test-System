@@ -1,5 +1,5 @@
 # 10 — CI / Dev Flow
-
+# Tmp Note : Integration Tests.. Git Action
 A fully automated pull-request pipeline that enforces two non-negotiable rules:
 
 1. **Every class and every function ships with unit tests** — no untested public symbol can land on `main`.
