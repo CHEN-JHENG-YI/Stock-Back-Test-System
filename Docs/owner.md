@@ -4,6 +4,8 @@
 ## Owner 4 - AI chat -> script / mainpulate front end (Louis)
 ## Owner 5 - CI Flow (Liz)
 ## Owner 6 - Desktop Application Release (ARui)
-## Owner 7 - Something not defined yet....
+## Owner 7 - Something not defined yet.... (Jeff)
 
-
+## Spec Finalized Date : 5/30
+## Detailed Spec, (e.g. Framework adoption, interfaces design, ...)
+## Owner can always create issue and ask for implementation helps
